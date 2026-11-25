@@ -9,6 +9,7 @@ BOOKS_QUERY = """
     JOIN authors ON authors.id = books.author_id
 """
 BOOK_ORDER = " ORDER BY books.title, authors.name"
+FIND_QUERY = BOOKS_QUERY + " WHERE books.title = ? ORDER BY books.id"
 
 
 def connect(path: str) -> sqlite3.Connection:
@@ -32,6 +33,7 @@ def create_schema(connection: sqlite3.Connection) -> None:
             UNIQUE (author_id, title)
         )
     """)
+    connection.execute("CREATE INDEX IF NOT EXISTS idx_books_title ON books (title)")
 
 
 def add_book(connection: sqlite3.Connection, title: str, author: str) -> bool:
@@ -54,3 +56,14 @@ def add_book(connection: sqlite3.Connection, title: str, author: str) -> bool:
 
 def list_books(connection: sqlite3.Connection) -> list[tuple[str, str]]:
     return connection.execute(BOOKS_QUERY + BOOK_ORDER).fetchall()
+
+
+def find_books(connection: sqlite3.Connection, title: str) -> list[tuple[str, str]]:
+    """Ищет книги по точному названию с учётом регистра."""
+    return connection.execute(FIND_QUERY, (title.strip(),)).fetchall()
+
+
+def explain_search(connection: sqlite3.Connection, title: str) -> list[str]:
+    """Запрашивает у SQLite план того же запроса, которым выполняется поиск."""
+    rows = connection.execute("EXPLAIN QUERY PLAN " + FIND_QUERY, (title.strip(),))
+    return [detail for _, _, _, detail in rows]
